@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 /*
  * Several useful constants
@@ -48,7 +49,8 @@ typedef enum
   CLOSING_BY_PEER,
   CLOSING_BY_HOST,
   CLOSED,
-  INVALID
+  INVALID,
+  UNKNOWN
 } mircotcp_state_t;
 
 

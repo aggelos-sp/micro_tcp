@@ -24,7 +24,20 @@
 microtcp_sock_t
 microtcp_socket (int domain, int type, int protocol)
 {
-  /* Your code here */
+  microtcp_sock_t newSocket;
+  newSocket.sd = socket(domain, type, protocol);
+
+  if(newSocket.sd == -1){
+    perror("Fail to initialize socket");
+    exit(EXIT_FAILURE);
+  }
+  newSocket.state = UNKNOWN;
+  newSocket.init_win_size = MICROTCP_WIN_SIZE;
+  newSocket.curr_win_size = MICROTCP_WIN_SIZE;
+  newSocket.ssthresh = MICROTCP_INIT_SSTHRESH;
+  newSocket.cwnd = MICROTCP_INIT_CWND;
+
+  return newSocket;
 }
 
 int
