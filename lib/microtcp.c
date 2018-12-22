@@ -58,7 +58,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   microtcp_header_t * recieve_head;
   uint8_t buff[MICROTCP_RECVBUF_LEN];
   uint32_t checksum_tmp;
-  int i = 0;
+  int i = 0, recieve;
   recieve_head = malloc(sizeof(microtcp_header_t));
 
   for(i = 0; i<MICROTCP_RECVBUF_LEN; i++){
@@ -79,9 +79,26 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   send_head.checksum = crc32(buff, MICROTCP_RECVBUF_LEN);
   /*Send first packet*/
   if(sendto(socket->sd,(void *)&send_head,sizeof(microtcp_header_t),0,address,address_len) < 0){
-    perror("Faild to send first pack");
+    perror("Failed to send first pack");
     exit(EXIT_FAILURE);
   }
+  /*Getting second packet*/
+  recieve = recvfrom(socket->sd, recieve_head, sizeof(microtcp_header_t), 0 ,address,&address_len);
+  if(recieve == -1){
+    perror("Failed to recieve second syn ack @connect");
+    exit(EXIT_FAILURE);
+  }
+  checksum_tmp = htonl(recieve_head->checksum);
+  check_head.data_len = 0;
+  check_head.future_use0 = 0;
+  check_head.future_use1 = 0;
+  check_head.future_use2 = 0;
+  check_head.checksum = 0;
+  check_head.ack_number = recieve_head->ack_number;
+  check_head.seq_number = recieve_head->seq_number;
+  check_head.window = recieve_head->window;
+  check_head.control = recieve_head->control;
+
 }
 
 int
@@ -108,4 +125,23 @@ ssize_t
 microtcp_recv (microtcp_sock_t *socket, void *buffer, size_t length, int flags)
 {
   /* Your code here */
+}
+
+
+/*My methods*/
+microtcp_header_t* initialize_packets(microtcp_header_t* packet, uint32_t seq_number, 
+                  uint32_t ack_number,uint16_t control,uint16_t window, 
+                  uint32_t data_len, uint32_t future_use0, uint32_t future_use1,
+                  uint32_t future_use2, uint32_t checksum, 
+                  uint32_t left_sack, uint32_t right_sack)
+{
+  packet->seq_number = seq_number;
+  packet->ack_number = ack_number;
+  packet->control = control;
+  packet->window = window;
+  packet->data_len = data_len;
+  packet->future_use0 = future_use0;
+  packet->future_use1 = future_use1;
+  packet->future_use2 = future_use0;
+  packet->checksum = checksum;
 }

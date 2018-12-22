@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <../utils/crc32.h>
 
 /*
  * Several useful constants
@@ -142,6 +143,13 @@ microtcp_send (microtcp_sock_t *socket, const void *buffer, size_t length,
 
 ssize_t
 microtcp_recv (microtcp_sock_t *socket, void *buffer, size_t length, int flags);
+
+/*My Methods*/
+microtcp_header_t* initialize_packets(microtcp_header_t* packet, uint32_t seq_number, 
+                  uint32_t ack_number,uint16_t control,uint16_t window, 
+                  uint32_t data_len, uint32_t future_use0, uint32_t future_use1,
+                  uint32_t future_use2, uint32_t checksum, 
+                  uint32_t left_sack, uint32_t right_sack);
 
 
 #endif /* LIB_MICROTCP_H_ */
