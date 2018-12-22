@@ -56,14 +56,15 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
 {
   microtcp_header_t send_head, check_head;
   microtcp_header_t * recieve_head;
-  uint32_t buff[MICROTCP_RECVBUF_LEN];
+  uint8_t buff[MICROTCP_RECVBUF_LEN];
+  uint32_t checksum_tmp;
   int i = 0;
   recieve_head = malloc(sizeof(microtcp_header_t));
 
   for(i = 0; i<MICROTCP_RECVBUF_LEN; i++){
     buff[i] = 0;
   }
-
+  /*Initialize first pack*/
   send_head.ack_number = 0;
   send_head.seq_number = rand();
   send_head.future_use0 = 0;
@@ -75,6 +76,12 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   send_head.control = htons(SYN);
   
   memcpy(buff, &send_head, sizeof(microtcp_header_t));
+  send_head.checksum = crc32(buff, MICROTCP_RECVBUF_LEN);
+  /*Send first packet*/
+  if(sendto(socket->sd,(void *)&send_head,sizeof(microtcp_header_t),0,address,address_len) < 0){
+    perror("Faild to send first pack");
+    exit(EXIT_FAILURE);
+  }
 }
 
 int
