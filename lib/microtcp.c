@@ -21,8 +21,7 @@
 #include "microtcp.h"
 #include "../utils/crc32.h"
 
-microtcp_sock_t
-microtcp_socket (int domain, int type, int protocol)
+microtcp_sock_t microtcp_socket (int domain, int type, int protocol)
 {
   microtcp_sock_t newSocket;
   newSocket.sd = socket(domain, type, protocol);
@@ -40,18 +39,42 @@ microtcp_socket (int domain, int type, int protocol)
   return newSocket;
 }
 
-int
-microtcp_bind (microtcp_sock_t *socket, const struct sockaddr *address,
-               socklen_t address_len)
+int microtcp_bind (microtcp_sock_t *socket, const struct sockaddr *address,
+                  socklen_t address_len)
 {
-  /* Your code here */
+  int bind_number = bind(socket->sd, address, address_len);
+  if(bind_number < 0){
+    perror("Error Could Not Bind Socket");
+    exit(EXIT_FAILURE);
+  }
+  return bind_number;
 }
 
 int
 microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
                   socklen_t address_len)
 {
-  /* Your code here */
+  microtcp_header_t send_head, check_head;
+  microtcp_header_t * recieve_head;
+  uint32_t buff[MICROTCP_RECVBUF_LEN];
+  int i = 0;
+  recieve_head = malloc(sizeof(microtcp_header_t));
+
+  for(i = 0; i<MICROTCP_RECVBUF_LEN; i++){
+    buff[i] = 0;
+  }
+
+  send_head.ack_number = 0;
+  send_head.seq_number = rand();
+  send_head.future_use0 = 0;
+  send_head.future_use1 = 0;
+  send_head.future_use2 = 0;
+  send_head.checksum = 0;
+  send_head.window = 0;
+  send_head.data_len = 0;
+  send_head.control = htons(SYN);
+  
+  memcpy(buff, &send_head, sizeof(microtcp_header_t));
 }
 
 int
