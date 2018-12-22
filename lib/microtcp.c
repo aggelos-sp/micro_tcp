@@ -144,4 +144,5 @@ microtcp_header_t* initialize_packets(microtcp_header_t* packet, uint32_t seq_nu
   packet->future_use1 = future_use1;
   packet->future_use2 = future_use0;
   packet->checksum = checksum;
+  return packet;
 }
