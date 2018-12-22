@@ -53,3 +53,7 @@ dkms.conf
 
 # Windows Compiler
 /.vscode
+
+#Cmake Ignore List
+/CMakeFiles
+/CMakeCache.txt
