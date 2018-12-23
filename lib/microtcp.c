@@ -93,6 +93,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   check_head = initialize_packets_notpointers(check_head, recieve_head->seq_number, recieve_head->ack_number,
                                               recieve_head->control,recieve_head->window,0,0,0,0,htonl(recieve_head->checksum),
                                               0,0);
+  /*
   checksum_tmp = htonl(recieve_head->checksum);
   check_head.data_len = 0;
   check_head.future_use0 = 0;
@@ -103,6 +104,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   check_head.seq_number = recieve_head->seq_number;
   check_head.window = recieve_head->window;
   check_head.control = recieve_head->control;
+  */
 
 }
 
