@@ -65,6 +65,8 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
     buff[i] = 0;
   }
   /*Initialize first pack*/
+  send_head = initialize_packets_notpointers(send_head, rand(),0,htons(SYN),0,0,0,0,0,0,0,0);
+  /*
   send_head.ack_number = 0;
   send_head.seq_number = rand();
   send_head.future_use0 = 0;
@@ -74,7 +76,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   send_head.window = 0;
   send_head.data_len = 0;
   send_head.control = htons(SYN);
-  
+  */
   memcpy(buff, &send_head, sizeof(microtcp_header_t));
   send_head.checksum = crc32(buff, MICROTCP_RECVBUF_LEN);
   /*Send first packet*/
@@ -88,6 +90,9 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
     perror("Failed to recieve second syn ack @connect");
     exit(EXIT_FAILURE);
   }
+  check_head = initialize_packets_notpointers(check_head, recieve_head->seq_number, recieve_head->ack_number,
+                                              recieve_head->control,recieve_head->window,0,0,0,0,htonl(recieve_head->checksum),
+                                              0,0);
   checksum_tmp = htonl(recieve_head->checksum);
   check_head.data_len = 0;
   check_head.future_use0 = 0;
@@ -129,7 +134,7 @@ microtcp_recv (microtcp_sock_t *socket, void *buffer, size_t length, int flags)
 
 
 /*My methods*/
-microtcp_header_t* initialize_packets(microtcp_header_t* packet, uint32_t seq_number, 
+microtcp_header_t* initialize_packets_forpointers(microtcp_header_t* packet, uint32_t seq_number, 
                   uint32_t ack_number,uint16_t control,uint16_t window, 
                   uint32_t data_len, uint32_t future_use0, uint32_t future_use1,
                   uint32_t future_use2, uint32_t checksum, 
@@ -146,3 +151,20 @@ microtcp_header_t* initialize_packets(microtcp_header_t* packet, uint32_t seq_nu
   packet->checksum = checksum;
   return packet;
 }
+
+microtcp_header_t initialize_packets_notpointers(microtcp_header_t packet, uint32_t seq_number, 
+                  uint32_t ack_number,uint16_t control,uint16_t window, 
+                  uint32_t data_len, uint32_t future_use0, uint32_t future_use1,
+                  uint32_t future_use2, uint32_t checksum, 
+                  uint32_t left_sack, uint32_t right_sack)
+{
+  packet->seq_number = seq_number;
+  packet->ack_number = ack_number;
+  packet->control = control;
+  packet->window = window;
+  packet->data_len = data_len;
+  packet->future_use0 = future_use0;
+  packet->future_use1 = future_use1;
+  packet->future_use2 = future_use0;
+  packet->checksum = checksum;
+  return packet;

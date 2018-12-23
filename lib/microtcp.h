@@ -36,6 +36,7 @@
 #define MICROTCP_WIN_SIZE MICROTCP_RECVBUF_LEN
 #define MICROTCP_INIT_CWND (3 * MICROTCP_MSS)
 #define MICROTCP_INIT_SSTHRESH MICROTCP_WIN_SIZE
+#define SYN 16384
 
 /**
  * Possible states of the microTCP socket
@@ -145,7 +146,13 @@ ssize_t
 microtcp_recv (microtcp_sock_t *socket, void *buffer, size_t length, int flags);
 
 /*My Methods*/
-microtcp_header_t* initialize_packets(microtcp_header_t* packet, uint32_t seq_number, 
+microtcp_header_t* initialize_packets_forpointers(microtcp_header_t* packet, uint32_t seq_number, 
+                  uint32_t ack_number,uint16_t control,uint16_t window, 
+                  uint32_t data_len, uint32_t future_use0, uint32_t future_use1,
+                  uint32_t future_use2, uint32_t checksum, 
+                  uint32_t left_sack, uint32_t right_sack);
+
+microtcp_header_t initialize_packets_notpointers(microtcp_header_t packet, uint32_t seq_number, 
                   uint32_t ack_number,uint16_t control,uint16_t window, 
                   uint32_t data_len, uint32_t future_use0, uint32_t future_use1,
                   uint32_t future_use2, uint32_t checksum, 
