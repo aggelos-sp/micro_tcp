@@ -160,5 +160,5 @@ microtcp_header_t initialize_packets_notpointers(microtcp_header_t packet, uint3
                   uint32_t future_use2, uint32_t checksum, 
                   uint32_t left_sack, uint32_t right_sack);
 
-
+uint32_t create_checksum(microtcp_header_t pack);
 #endif /* LIB_MICROTCP_H_ */

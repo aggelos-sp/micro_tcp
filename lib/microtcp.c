@@ -250,7 +250,28 @@ microtcp_accept (microtcp_sock_t *socket, struct sockaddr *address,
 int
 microtcp_shutdown (microtcp_sock_t *socket, int how)
 {
-  /* Your code here */
+  int i = 0;
+  uint8_t buff[MICROTCP_RECVBUF_LEN];
+  uint32_t checksum1, checksum2;
+  microtcp_header_t *recieve_head;
+  microtcp_header_t send_head, check_head;
+  
+  if(socket->state == CLOSING_BY_PEER){
+    send_head = initialize_packets_notpointers(send_head,0,htonl(socket->seq_number),htons(ACK),
+                htons(socket->curr_win_size),0,0,0,0,0,0,0);
+    for(i = 0; i < MICROTCP_RECVBUF_LEN; i++){
+      buff[i] = 0;
+    }
+    memcpy(buff,&send_head,sizeof(send_head));
+    checksum1 = crc32(buff, sizeof(buff));
+    send_head.checksum  = checksum1;
+    if(sendto(socket->sd,(void*)&send_head,head_pack_size,0,&socket->address,socket->address_len) < 0){
+      socket->state = INVALID;
+      perror("Error @shutdown while sending second packet");
+      return socket;
+    }
+  }
+
 }
 
 ssize_t
@@ -302,3 +323,13 @@ microtcp_header_t initialize_packets_notpointers(microtcp_header_t packet, uint3
   packet.future_use2 = future_use0;
   packet.checksum = checksum;
   return packet;
+}
+uint32_t create_checksum( microtcp_header_t pack){
+  uint8_t buff[MICROTCP_RECVBUF_LEN];
+  int i = 0;
+  for(i = 0; i < MICROTCP_RECVBUF_LEN; i++){
+    buff[i] = 0;
+  }
+  memcpy(buff, &pack,sizeof(pack));
+  return crc32(buff, sizeof(buff));
+}
