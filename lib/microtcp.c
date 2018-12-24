@@ -136,7 +136,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
  checksum1 = crc32(buff, sizeof(buff));
  send_head.checksum = htonl(checksum1);
  /*Send the last packet of the handshake*/
- if(sendto(socket->sd,(void*)send_head,head_pack_size,0,address,address_len)){
+ if(sendto(socket->sd,(void*)&send_head,head_pack_size,0,address,address_len)){
    perror("Error at third packet ");
    exit(EXIT_FAILURE);
  }
@@ -150,7 +150,101 @@ int
 microtcp_accept (microtcp_sock_t *socket, struct sockaddr *address,
                  socklen_t address_len)
 {
-  /* Your code here */
+  uint8_t buff[MICROTCP_RECVBUF_LEN];
+  uint32_t checksum1, checksum2;
+  int i = 0;
+  microtcp_header_t send_head, check_head;
+  microtcp_header_t *recieve_head;
+  recieve_head = malloc(head_pack_size);
+
+  /*Get first packet*/
+  if(recvfrom(socket->sd,recieve_head,head_pack_size,0,address,&address_len) == -1){
+    perror("Error @accept could not recieve first pack");
+    exit(EXIT_FAILURE);
+  }
+  checksum1 = ntohl(recieve_head->checksum);
+  check_head = initialize_packets_notpointers(check_head,recieve_head->seq_number,recieve_head->ack_number,
+              recieve_head->control,0,0,0,0,0,0,0,0);
+
+  for(i = 0; i < MICROTCP_RECVBUF_LEN; i ++){
+    buff[i] = 0;
+  }
+  memcpy(buff, &check_head, head_pack_size);
+  checksum2 = crc32(buff,sizeof(buff));
+
+  if(checksum1 != checksum2){
+    socket->state = INVALID;
+    perror("Error @accept missmatch of checksums in first packet");
+    return socket;
+  }
+  /*Check first handshake*/
+  recieve_head->control = ntohs(recieve_head->control);
+  if(recieve_head->control != SYN){
+    socket->state = INVALID;
+    perror("Error @accept the first packet was not syn");
+  }
+  srand(time(NULL));
+
+  recieve_head->seq_number = ntohl(recieve_head->seq_number);
+  send_head = initialize_packets_notpointers(send_head,ntohl(rand()%1000),htonl(recieve_head->seq_number),
+              htons(ACK_SYN),htons(MICROTCP_WIN_SIZE),0,0,0,0,0,0,0);
+  for(i = 0;i < MICROTCP_RECVBUF_LEN; i++){
+    buff[i] = 0;
+  }
+  memcpy(buff, send_head, head_pack_size);
+  checksum1 = crc32(buff, sizeof(buff));
+  send_head.checksum = htons(checksum1);
+
+  socket->init_win_size = MICROTCP_WIN_SIZE;
+
+  if(sendto(socket->sd,(void*)&send_head,head_pack_size,0,address,address_len) < 0){
+    socket->state = INVALID;
+    perror("Error @accept fail at send of the second packet");
+    return socket;
+  }
+
+  if(recvfrom(socket->sd,recieve_head,head_pack_size,0,address,address_len) == -1){
+    perror("Error @accept fail at connection");
+    exit(EXIT_FAILURE);
+  }
+
+  checksum1 = ntohl(recieve_head->checksum);
+  check_head = initialize_packets_notpointers(check_head, recieve_head->seq_number,recieve_head->ack_number,
+                recieve_head->control,recieve_head->window,0,0,0,0,0,0,0);
+  for(i = 0;i <MICROTCP_RECVBUF_LEN; i++){
+    buff[i] = 0;
+  }
+  memcpy(buff, &check_head, head_pack_size);
+  checksum2 = crc32(buff, sizeof(buff));
+  if(checksum1 != checksum2){
+    socket->state = INVALID;
+    perror("Error @accept missmatch at checksum");
+    return socket;
+  }
+  /*Check if the third handshake is ACK*/
+
+  recieve_head->control = ntohs(recieve_head->control);
+  if(recieve_head->control != ACK){
+    socket->state = INVALID;
+    perror("Error @accept the third packet isnt ack");
+    return socket;
+  }
+  recieve_head->ack_number = ntohl(recieve_head->ack_number);
+  recieve_head->seq_number = ntohl(recieve_head->seq_number);
+  send_head.ack_number = ntohl(send_head.ack_number);
+  send_head.seq_number = ntohl(send_head.seq_number);
+
+  if((recieve_head->seq_number != send_head.ack_number)||
+      (recieve_head->ack_number != send_head.seq_number)){
+    perror("Error @accept missmatch seq and ack numbers");
+    socket->state = INVALID;
+  }
+
+  socket->ack_number = recieve_head->ack_number;
+  socket->seq_number = recieve_head->seq_number;
+  socket->state = ESTABLISHED;
+  return socket;
+
 }
 
 int
