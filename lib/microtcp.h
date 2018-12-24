@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <../utils/crc32.h>
+#include <string.h>
 
 /*
  * Several useful constants
@@ -90,6 +91,10 @@ typedef struct
   uint64_t bytes_send;
   uint64_t bytes_received;
   uint64_t bytes_lost;
+
+  /*My fields*/
+  struct sockaddr address;
+  socklen_t address_len;
 } microtcp_sock_t;
 
 
