@@ -57,7 +57,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   microtcp_header_t send_head, check_head;
   microtcp_header_t * recieve_head;
   uint8_t buff[MICROTCP_RECVBUF_LEN];
-  uint32_t checksum_tmp;
+  uint32_t checksum1, checksum2;
   int i = 0, recieve;
   recieve_head = malloc(sizeof(microtcp_header_t));
 
@@ -92,9 +92,10 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   }
   check_head = initialize_packets_notpointers(check_head, recieve_head->seq_number, recieve_head->ack_number,
                                               recieve_head->control,recieve_head->window,0,0,0,0,htonl(recieve_head->checksum),
-                                              0,0);
+                                              0,0); 
+  
+  checksum1 = htonl(recieve_head->checksum);
   /*
-  checksum_tmp = htonl(recieve_head->checksum);
   check_head.data_len = 0;
   check_head.future_use0 = 0;
   check_head.future_use1 = 0;
@@ -106,6 +107,43 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   check_head.control = recieve_head->control;
   */
 
+ for(i = 0; i < MICROTCP_RECVBUF_LEN; i++){
+   buff[i] = 0;
+ }
+ memcpy(buff,&check_head,head_pack_size);
+ checksum2 = crc32(buff, sizeof(buff));
+ if(checksum1 != checksum2){
+   perror("Error at second packet at checksum");
+   exit(EXIT_FAILURE);
+ }
+
+ /*Check the second handshake*/
+ recieve_head->control = ntohs(recieve_head->control);
+ if(recieve_head->control != ACK_SYN){
+   perror("Error at second packet it was not syn_ack");
+   exit(EXIT_FAILURE);
+ }
+ socket->curr_win_size = ntohs(recieve_head->window);
+ recieve_head->seq_number = ntohl(recieve_head->seq_number);
+
+ send_head = initialize_packets_notpointers(send_head,htonl(recieve_head->seq_number),
+ ntohl(recieve_head->seq_number),htons(ACK),htons(socket->curr_win_size),
+ 0,0,0,0,0,0,0);
+ for(i = 0; i< MICROTCP_RECVBUF_LEN; i++){
+   buff[i] = 0;
+ }
+ memcpy(buff,&send_head,sizeof(send_head));
+ checksum1 = crc32(buff, sizeof(buff));
+ send_head.checksum = htonl(checksum1);
+ /*Send the last packet of the handshake*/
+ if(sendto(socket->sd,(void*)send_head,head_pack_size,0,address,address_len)){
+   perror("Error at third packet ");
+   exit(EXIT_FAILURE);
+ }
+
+ socket->state = ESTABLISHED;
+ socket->seq_number = ntohl(send_head.seq_number);
+ socket->ack_number = ntohl(send_head.ack_number);
 }
 
 int
@@ -160,13 +198,13 @@ microtcp_header_t initialize_packets_notpointers(microtcp_header_t packet, uint3
                   uint32_t future_use2, uint32_t checksum, 
                   uint32_t left_sack, uint32_t right_sack)
 {
-  packet->seq_number = seq_number;
-  packet->ack_number = ack_number;
-  packet->control = control;
-  packet->window = window;
-  packet->data_len = data_len;
-  packet->future_use0 = future_use0;
-  packet->future_use1 = future_use1;
-  packet->future_use2 = future_use0;
-  packet->checksum = checksum;
+  packet.seq_number = seq_number;
+  packet.ack_number = ack_number;
+  packet.control = control;
+  packet.window = window;
+  packet.data_len = data_len;
+  packet.future_use0 = future_use0;
+  packet.future_use1 = future_use1;
+  packet.future_use2 = future_use0;
+  packet.checksum = checksum;
   return packet;

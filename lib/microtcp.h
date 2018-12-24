@@ -37,7 +37,9 @@
 #define MICROTCP_INIT_CWND (3 * MICROTCP_MSS)
 #define MICROTCP_INIT_SSTHRESH MICROTCP_WIN_SIZE
 #define SYN 16384
-
+#define ACK_SYN 20480
+#define ACK 4096
+int head_pack_size = sizeof(microtcp_header_t);
 /**
  * Possible states of the microTCP socket
  *
