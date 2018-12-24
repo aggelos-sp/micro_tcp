@@ -56,14 +56,10 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
 {
   microtcp_header_t send_head, check_head;
   microtcp_header_t * recieve_head;
-  uint8_t buff[MICROTCP_RECVBUF_LEN];
   uint32_t checksum1, checksum2;
   int i = 0, recieve;
   recieve_head = malloc(sizeof(microtcp_header_t));
 
-  for(i = 0; i<MICROTCP_RECVBUF_LEN; i++){
-    buff[i] = 0;
-  }
   /*Initialize first pack*/
   send_head = initialize_packets_notpointers(send_head, rand(),0,htons(SYN),0,0,0,0,0,0,0,0);
   /*
@@ -77,8 +73,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   send_head.data_len = 0;
   send_head.control = htons(SYN);
   */
-  memcpy(buff, &send_head, sizeof(microtcp_header_t));
-  send_head.checksum = crc32(buff, MICROTCP_RECVBUF_LEN);
+  send_head.checksum = create_checksum(send_head);
   /*Send first packet*/
   if(sendto(socket->sd,(void *)&send_head,sizeof(microtcp_header_t),0,address,address_len) < 0){
     perror("Failed to send first pack");
@@ -107,11 +102,7 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
   check_head.control = recieve_head->control;
   */
 
- for(i = 0; i < MICROTCP_RECVBUF_LEN; i++){
-   buff[i] = 0;
- }
- memcpy(buff,&check_head,head_pack_size);
- checksum2 = crc32(buff, sizeof(buff));
+ checksum2 = create_checksum(check_head);
  if(checksum1 != checksum2){
    perror("Error at second packet at checksum");
    exit(EXIT_FAILURE);
@@ -129,11 +120,8 @@ microtcp_connect (microtcp_sock_t *socket, const struct sockaddr *address,
  send_head = initialize_packets_notpointers(send_head,htonl(recieve_head->seq_number),
  ntohl(recieve_head->seq_number),htons(ACK),htons(socket->curr_win_size),
  0,0,0,0,0,0,0);
- for(i = 0; i< MICROTCP_RECVBUF_LEN; i++){
-   buff[i] = 0;
- }
- memcpy(buff,&send_head,sizeof(send_head));
- checksum1 = crc32(buff, sizeof(buff));
+ 
+ checksum1 = create_checksum(send_head);
  send_head.checksum = htonl(checksum1);
  /*Send the last packet of the handshake*/
  if(sendto(socket->sd,(void*)&send_head,head_pack_size,0,address,address_len)){
@@ -150,7 +138,6 @@ int
 microtcp_accept (microtcp_sock_t *socket, struct sockaddr *address,
                  socklen_t address_len)
 {
-  uint8_t buff[MICROTCP_RECVBUF_LEN];
   uint32_t checksum1, checksum2;
   int i = 0;
   microtcp_header_t send_head, check_head;
@@ -166,11 +153,7 @@ microtcp_accept (microtcp_sock_t *socket, struct sockaddr *address,
   check_head = initialize_packets_notpointers(check_head,recieve_head->seq_number,recieve_head->ack_number,
               recieve_head->control,0,0,0,0,0,0,0,0);
 
-  for(i = 0; i < MICROTCP_RECVBUF_LEN; i ++){
-    buff[i] = 0;
-  }
-  memcpy(buff, &check_head, head_pack_size);
-  checksum2 = crc32(buff,sizeof(buff));
+  checksum2 = create_checksum(check_head);
 
   if(checksum1 != checksum2){
     socket->state = INVALID;
@@ -188,11 +171,8 @@ microtcp_accept (microtcp_sock_t *socket, struct sockaddr *address,
   recieve_head->seq_number = ntohl(recieve_head->seq_number);
   send_head = initialize_packets_notpointers(send_head,ntohl(rand()%1000),htonl(recieve_head->seq_number),
               htons(ACK_SYN),htons(MICROTCP_WIN_SIZE),0,0,0,0,0,0,0);
-  for(i = 0;i < MICROTCP_RECVBUF_LEN; i++){
-    buff[i] = 0;
-  }
-  memcpy(buff, send_head, head_pack_size);
-  checksum1 = crc32(buff, sizeof(buff));
+  
+  checksum1 = create_checksum(send_head);
   send_head.checksum = htons(checksum1);
 
   socket->init_win_size = MICROTCP_WIN_SIZE;
@@ -211,11 +191,8 @@ microtcp_accept (microtcp_sock_t *socket, struct sockaddr *address,
   checksum1 = ntohl(recieve_head->checksum);
   check_head = initialize_packets_notpointers(check_head, recieve_head->seq_number,recieve_head->ack_number,
                 recieve_head->control,recieve_head->window,0,0,0,0,0,0,0);
-  for(i = 0;i <MICROTCP_RECVBUF_LEN; i++){
-    buff[i] = 0;
-  }
-  memcpy(buff, &check_head, head_pack_size);
-  checksum2 = crc32(buff, sizeof(buff));
+  
+  checksum2 = create_checksum(check_head);
   if(checksum1 != checksum2){
     socket->state = INVALID;
     perror("Error @accept missmatch at checksum");
@@ -259,12 +236,10 @@ microtcp_shutdown (microtcp_sock_t *socket, int how)
   if(socket->state == CLOSING_BY_PEER){
     send_head = initialize_packets_notpointers(send_head,0,htonl(socket->seq_number),htons(ACK),
                 htons(socket->curr_win_size),0,0,0,0,0,0,0);
-    for(i = 0; i < MICROTCP_RECVBUF_LEN; i++){
-      buff[i] = 0;
-    }
-    memcpy(buff,&send_head,sizeof(send_head));
-    checksum1 = crc32(buff, sizeof(buff));
+    
+    checksum1 = create_checksum(send_head);
     send_head.checksum  = checksum1;
+    
     if(sendto(socket->sd,(void*)&send_head,head_pack_size,0,&socket->address,socket->address_len) < 0){
       socket->state = INVALID;
       perror("Error @shutdown while sending second packet");

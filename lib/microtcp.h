@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <../utils/crc32.h>
 #include <string.h>
+#include <time.h>
 
 /*
  * Several useful constants
