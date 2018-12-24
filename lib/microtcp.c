@@ -245,6 +245,113 @@ microtcp_shutdown (microtcp_sock_t *socket, int how)
       perror("Error @shutdown while sending second packet");
       return socket;
     }
+    srand(time(NULL));
+    send_head = initialize_packets_notpointers(send_head,(rand()%1000),htonl(socket->seq_number+1),htons(FIN_ACK),
+                htons(socket->curr_win_size),0,0,0,0,0,0,0);
+    checksum1 = create_checksum(send_head);
+    send_head.checksum = htol(checksum1);
+
+    if(sendto(socket->sd,(void *)&send_head,head_pack_size,0,&socket->address,socket->address_len) < 0){
+      perror("Error @shutdown while sending the third pack");
+    }
+    /*We get the fourth message*/
+    if(recvfrom(socket->sd, recieve_head,head_pack_size,0,&socket->address,socket->address_len) == -1){
+        perror("Error @shutdown the second recieve");
+        exit(EXIT_FAILURE);
+    }
+    checksum1 = ntohl(recieve_head->checksum);
+    check_head = initialize_packets_notpointers(check_head,recieve_head->seq_number,recieve_head->ack_number,
+                  recieve_head->control, recieve_head->window,0,0,0,0,0,0,0);
+    checksum2 = create_checksum(check_head);
+    if(checksum1 != checksum2){
+      socket->state = INVALID;
+      perror("Error @shutdown checksum missmatch in fourth packet");
+      return socket;
+    }
+    recieve_head->control = ntohs(recieve_head->control);
+    if(recieve_head->control != ACK){
+      socket->state = INVALID;
+      perror("Error @shutdown the fourth packet isnt a ack");
+      return socket;
+    }
+    if((ntohl(recieve_head->seq_number) != ntohl(send_head.ack_number))
+      ||(ntohl(recieve_head->ack_number)!= ntohl(send_head.seq_number + 1))){
+      socket->state = INVALID;
+      perror("Error @shutdown missmatch of seq and ack at the fourth packet");
+      return socket;
+    }
+    else{
+      /*We make the first final packet to send*/
+      send_head = initialize_packets_notpointers(send_head,hntol(socket->seq_number+1), 0,htons(FIN_ACK),
+                  htons(socket->curr_win_size),0,0,0,0,0,0,0);
+      checksum1 = create_checksum(send_head);
+      send_head.checksum = htonl(checksum1);
+      if(sendto(socket->sd, (void*)&send_head,head_pack_size,0,&socket->address,socket->address_len) < 0){
+        socket->state = INVALID;
+        perror("Error @shutdown at the send of the first packet");
+        return socket;
+      }
+      /*Now we get the ack  packet from server*/
+      if(recvfrom(socket->sd,recieve_head,head_pack_size,0,&socket->address,socket->address_len) == -1){
+        perror("Error @shutdown  while recieving second packet");
+        exit(EXIT_FAILURE);
+      }
+      checksum1 = ntohl(recieve_head->checksum);
+      check_head = initialize_packets_notpointers(check_head,recieve_head->seq_number,recieve_head->ack_number,
+                    recieve_head->control,recieve_head->window,0,0,0,0,0,0,0);
+      checksum2 = create_checksum(check_head);
+      if(checksum1 != checksum2){
+        socket->state = INVALID;
+        perror("Error @shutdown checksum missmatch at the second packet");
+        return socket;
+      }
+      recieve_head->ack_number = ntohl(recieve_head->ack_number);
+      send_head.seq_number = ntohl(send_head.seq_number);
+      if(recieve_head->ack_number != (send_head.seq_number+1)){
+        socket->state = INVALID;
+        perror("Error @shutdown missmatch of ack and seq");
+        return socket;
+      }
+
+      socket->state = CLOSING_BY_HOST;
+      /*We get the final packet from the server*/
+      if(recvfrom(socket->sd,recieve_head,head_pack_size,0,&socket->address,socket->address_len) == -1){
+        perror("Error @shutdown fail to get the third packet");
+        exit(EXIT_FAILURE);
+      }
+
+      checksum1 = ntohl(recieve_head->checksum);
+      check_head = initialize_packets_notpointers(check_head,recieve_head->seq_number,recieve_head->ack_number,recieve_head->control,
+                    recieve_head->window,0,0,0,0,0,0,0);
+      checksum2 = create_checksum(check_head);
+      if(checksum1 != checksum2){
+        socket->state = INVALID;
+        perror("Error @shutdown missmatch of checksums at the third packet");
+        return socket;
+      }
+      
+      recieve_head->control = ntohs(recieve_head->control);
+      
+      if (recieve_head->control != FIN_ACK) {
+        socket->state = INVALID;
+        perror("Error @shutdown the third packet was not a fin ack packet");
+        return socket;
+      }
+      recieve_head->seq_number = ntohl(recieve_head->seq_number);
+      recieve_head->ack_number = ntohl(recieve_head->ack_number);
+      /*We create and send the final packet and we terminate the connection*/
+      send_head = initialize_packets_notpointers(send_head,htonl(recieve_head->seq_number),htonl(recieve_head->ack_number),
+                    htons(ACK),htons(socket->curr_win_size),0,0,0,0,0,0,0);
+      checksum1 = create_checksum(send_head);
+      if(sendto(socket->sd,(void*)&send_head,head_pack_size,0,&socket->address,socket->address_len) < 0){
+        socket->state = INVALID;
+        perror("Error @shutdown wile sending the fourth packet");
+        return socket;
+      }
+
+      socket->state = CLOSED;
+      return socket;
+    }
   }
 
 }

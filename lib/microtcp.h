@@ -41,6 +41,7 @@
 #define SYN 16384
 #define ACK_SYN 20480
 #define ACK 4096
+#define FIN_ACK 36864
 int head_pack_size = sizeof(microtcp_header_t);
 /**
  * Possible states of the microTCP socket
